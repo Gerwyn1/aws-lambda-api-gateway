@@ -1,4 +1,6 @@
 import { APIGatewayProxyEventV2 } from "aws-lambda";
+import { fetchSecret } from '../utils/fetchSecret';
+import crypto from 'crypto';
 
 export const lambdaExample = async (event: any) => {
   console.log("TEMP Event log", event);
@@ -44,4 +46,29 @@ export const welcomeRoute = async (event: APIGatewayProxyEventV2) => {
       message2,
     }),
   };
+};
+
+export const loginRoute = async (event: APIGatewayProxyEventV2) => {
+  try {
+    const { username } = JSON.parse(event.body ?? '{}');
+    // can also pass secret name directly
+    const secretValue = await fetchSecret(process.env.SECRET_ID!);
+    const { encryptionKey } = JSON.parse(secretValue);
+    const hashedUsername = crypto.createHmac('sha256', encryptionKey).update(username).digest('hex');
+
+    return {
+      statusCode: 200,
+      body: JSON.stringify({
+        username: hashedUsername,
+      }),
+    };
+  } catch (error) {
+    console.error('Error:', error);
+    return {
+      statusCode: 500,
+      body: JSON.stringify({
+        message: 'Something went wrong',
+      }),
+    };
+  }
 };

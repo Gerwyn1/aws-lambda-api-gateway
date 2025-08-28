@@ -7,6 +7,7 @@ import * as path from "path";
 import * as apigateway from "aws-cdk-lib/aws-apigatewayv2";
 import * as apigateway_integrations from "aws-cdk-lib/aws-apigatewayv2-integrations";
 import { SecretsStack } from "./secrets-stack";
+import * as iam from "aws-cdk-lib/aws-iam";
 
 export class LambdaGatewayStack extends cdk.Stack {
   private readonly secretsStack: SecretsStack;
@@ -87,7 +88,7 @@ export class LambdaGatewayStack extends cdk.Stack {
       },
     });
 
-    welcomeLambda.addEnvironment("USERNAME2", "Courage the Cowardly Dog2");
+    // welcomeLambda.addEnvironment("USERNAME2", "Courage the Cowardly Dog2");
 
     httpApi.addRoutes({
       path: "/welcome",
@@ -97,10 +98,45 @@ export class LambdaGatewayStack extends cdk.Stack {
         welcomeLambda
       ),
     });
+
+    const loginLambda = new NodejsFunction(this, "LoginHandler", {
+      runtime: lambda.Runtime.NODEJS_22_X,
+      entry: path.join(__dirname, "../src/lambda/handler.ts"),
+      handler: "loginRoute",
+      functionName: `${this.stackName}-login-route-lambda`,
+    });
+    loginLambda.addEnvironment(
+      "SECRET_ID",
+      this.secretsStack.secret.secretName
+    );
+
+    loginLambda.addToRolePolicy(
+      new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: [
+          "secretsmanager:GetSecretValue",
+          "secretsmanager:DescribeSecret",
+        ],
+        resources: [this.secretsStack.secret.secretArn],
+      })
+    );
+
+    httpApi.addRoutes({
+      path: "/login",
+      methods: [apigateway.HttpMethod.POST],
+      integration: new apigateway_integrations.HttpLambdaIntegration(
+        "LoginIntegration",
+        loginLambda
+      ),
+    });
   }
 }
 
 // secret manager - aws console/cdk -> create secret (costs money)
-// npx cdk deploy --all (for both stacks) - DO NOT DEPLOY as it costs money
+// npx cdk deploy --all (for more than one stack) - DO NOT DEPLOY as it costs money
 
-// next task: accessing values from secret manager
+// accessing values from secret manager
+
+// encryptionKey -> destructure from parsed object which holds key value pairs (secret values), remember to input key value pair(s) in the secrets manager console
+
+// set up policy so 1 resource can access another resource

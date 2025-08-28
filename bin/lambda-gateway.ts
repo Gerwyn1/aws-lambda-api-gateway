@@ -7,9 +7,8 @@ const app = new cdk.App();
 
 const secretsStack = new SecretsStack(app, "SecretsStack");
 
-
 const lambdaStack = new LambdaGatewayStack(app, "LambdaGatewayStack", {
-  secretsStack
+  secretsStack,
 });
 
-lambdaStack.addDependency(secretsStack)
+lambdaStack.addDependency(secretsStack);
